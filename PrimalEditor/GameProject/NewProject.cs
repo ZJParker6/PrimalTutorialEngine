@@ -30,7 +30,7 @@ namespace PrimalEditor.GameProject
     class NewProject : ViewModelBase
     {
         // TODO: use a more apprioprate path (check installlation location)
-        private readonly string _TemplatePath = @"..\..\PrimalEditor\ProjectTemplates"; // do not hard code this (it may be else where)
+        private readonly string _TemplatePath = @"..\..\PrimalEditor\ProjectTemplates\"; // do not hard code this (it may be else where)
 
         private string _ProjectName = "NewProject"; // name of the project
         public string ProjectName
@@ -41,12 +41,13 @@ namespace PrimalEditor.GameProject
                 if(_ProjectName != value)
                 {
                     _ProjectName = value;
+                    ValidateProjectPath();
                     OnPropertyChanged(nameof(ProjectName));
                 }
             }
         }
 
-        private string _projectpath = $@"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\PrimalProject\"; // name of the project
+        private string _projectpath = $@"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\PrimalProjects\"; // name of the project
         public string ProjectPath
         {
             get => _projectpath;
@@ -55,7 +56,36 @@ namespace PrimalEditor.GameProject
                 if (_projectpath != value)
                 {
                     _projectpath = value;
+                    ValidateProjectPath();
                     OnPropertyChanged(nameof(ProjectPath));
+                }
+            }
+        }
+
+        private bool _isValid;
+        public bool isValid
+        {
+            get => _isValid;
+            set
+            {
+                if(_isValid != value)
+                {
+                    _isValid = value;
+                    OnPropertyChanged(nameof(isValid));
+                }
+            }
+        }
+
+        private string _errorMsg;
+        public string errorMsg
+        {
+            get => _errorMsg;
+            set
+            {
+                if (_errorMsg != value)
+                {
+                    _errorMsg = value;
+                    OnPropertyChanged(nameof(errorMsg));
                 }
             }
         }
@@ -63,6 +93,84 @@ namespace PrimalEditor.GameProject
         private ObservableCollection<ProjectTemplate> _ProjectTemplates = new ObservableCollection<ProjectTemplate>();
         public ReadOnlyObservableCollection<ProjectTemplate> projectTemplates { get; }
         
+        private bool ValidateProjectPath()
+        {
+            var path = ProjectPath; // store the path
+            if (!Path.EndsInDirectorySeparator(path)) path += @"\"; // if missing slash add it
+            path += $@"{ProjectName}\"; // add the project name to the path (full path)
+
+            isValid = false;
+            if (string.IsNullOrWhiteSpace(ProjectName.Trim()))
+            {
+                errorMsg = "Type in a project name.";
+            }
+            else if(ProjectName.IndexOfAny(Path.GetInvalidFileNameChars()) != -1)
+            {
+                errorMsg = "Invalid character(s) used in project name.";
+            }
+            else if (string.IsNullOrWhiteSpace(ProjectPath.Trim()))
+            {
+                errorMsg = "Select a valid project path.";
+            }
+            else if (ProjectPath.IndexOfAny(Path.GetInvalidPathChars()) != -1)
+            {
+                errorMsg = "Invalid character(s) used in project path.";
+            }
+            else if(Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any())
+            {
+                errorMsg = "Selected project folder already exists and is not empty.";
+            }
+            else
+            {
+                errorMsg = "";
+                isValid = true;
+            }
+            return isValid;
+        }
+
+        public string CreateProject(ProjectTemplate template)
+        {
+            ValidateProjectPath();
+            if(!isValid)
+            {
+                return string.Empty;
+            }
+            // correctr if wrong.
+         
+            if (!Path.EndsInDirectorySeparator(ProjectPath)) ProjectPath += @"\"; // if missing slash add it
+            var path = $@"{ProjectPath}{ProjectName}\"; // add the project name to the path (full path)
+
+            try
+            {
+                if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+                foreach(var folder in template.Folders)
+                {
+                    // create subfolders for game
+                    Directory.CreateDirectory(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path), folder)));
+                }
+                var dirInfo = new DirectoryInfo(path + @".Primal\");
+                dirInfo.Attributes |= FileAttributes.Hidden;
+                File.Copy(template.IconFilePath, Path.GetFullPath(Path.Combine(dirInfo.FullName, "Icon.png")));
+                File.Copy(template.ScreenshotFilePath, Path.GetFullPath(Path.Combine(dirInfo.FullName, "Screenshot.png")));
+
+                // used to set up files
+                // var project = new Project(ProjectName, path);
+                // Serializer.ToFile(project, path + $"{ProjectName}" + Project.Extension);
+
+                var projectXml = File.ReadAllText(template.ProjectFilePath); // read in file
+                projectXml = string.Format(projectXml, ProjectName, ProjectPath);
+                var projectPath = Path.GetFullPath(Path.Combine(path, $"{ProjectName}{Project.Extension}"));
+                File.WriteAllText(projectPath, projectXml);
+                return path;
+            }
+            catch(Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+                // TODO: log error
+               return string.Empty;
+            }
+        }
+
         public NewProject() // constructor
         {
             projectTemplates = new ReadOnlyObservableCollection<ProjectTemplate>(_ProjectTemplates);
@@ -92,7 +200,10 @@ namespace PrimalEditor.GameProject
                     template.ScreenshotFilePath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file), "Screenshot.png"));
                     template.Screenshot = File.ReadAllBytes(template.ScreenshotFilePath);
                     template.ProjectFilePath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file), template.ProjectFile));
+                   
                     _ProjectTemplates.Add(template);
+
+                    ValidateProjectPath();
                 }
             }
             catch(Exception ex)
