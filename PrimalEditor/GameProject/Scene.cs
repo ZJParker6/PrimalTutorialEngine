@@ -27,6 +27,20 @@ namespace PrimalEditor.GameProject
         [DataMember]
         public Project Project { get; private set; }
 
+        private bool _isAcive;
+        [DataMember]
+        public bool IsActive
+        {
+            get => _isAcive;
+            set
+            {
+                if(_isAcive!=value)
+                {
+                    _isAcive = value;
+                    OnPropertyChanged(nameof(IsActive));
+                }
+            }
+        }
         public Scene(Project project, string name)
         {
             Debug.Assert(project != null);

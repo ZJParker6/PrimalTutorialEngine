@@ -32,6 +32,8 @@ namespace PrimalEditor.GameProject
             if(!string.IsNullOrEmpty(projectPath))
             {
                 bDialogResult = true;
+                var project = OpenProject.Open(new ProjectData() { ProjectName = vm.ProjectName, ProjectPath = projectPath });
+                win.DataContext = project;
             }
             win.DialogResult = bDialogResult;
             win.Close();
