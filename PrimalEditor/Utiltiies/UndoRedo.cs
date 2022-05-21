@@ -37,9 +37,18 @@ namespace PrimalEditor.Utiltiies
             _undoAction = undo;
             _redoAction = redo;
         }
+
+        public UndoRedoAction(string property, object instance, object undoValue, object redoValue, string name) :
+            this(
+                () => instance.GetType().GetProperty(property).SetValue(instance, undoValue),
+                () => instance.GetType().GetProperty(property).SetValue(instance, redoValue),
+                name)
+        { }
+     
     }
     public class UndoRedo
     {
+        private bool _enableAdd = true;
         private readonly ObservableCollection<IUndoRedo> _redoList = new ObservableCollection<IUndoRedo>();
         private readonly ObservableCollection<IUndoRedo> _undoList = new ObservableCollection<IUndoRedo>();
         public ReadOnlyObservableCollection<IUndoRedo> RedoList { get; }
@@ -53,8 +62,11 @@ namespace PrimalEditor.Utiltiies
 
         public void Add(IUndoRedo cmd) // add new thing to list.
         {
-            _undoList.Add(cmd);
-            _redoList.Clear(); // clears redo list.
+            if (_enableAdd)
+            {
+                _undoList.Add(cmd);
+                _redoList.Clear(); // clears redo list.
+            }
         }
 
         public void Undo()
@@ -63,7 +75,9 @@ namespace PrimalEditor.Utiltiies
             {
                 var cmd = _undoList.Last(); // get last command
                 _undoList.RemoveAt(_undoList.Count - 1); // remove it from list
+                _enableAdd = false;
                 cmd.Undo(); // undo?
+                _enableAdd = true;
                 _redoList.Insert(0, cmd); // add to redolist
             }
         }
@@ -74,7 +88,9 @@ namespace PrimalEditor.Utiltiies
             {
                 var cmd = _redoList.First(); // get first redo
                 _redoList.RemoveAt(0); // remove it from list
+                _enableAdd = false;
                 cmd.Redo(); // undo?
+                _enableAdd = true;
                 _undoList.Add(cmd); // add to undolist
             }
         }
